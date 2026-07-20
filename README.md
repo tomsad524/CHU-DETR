@@ -109,28 +109,15 @@ python tools/convert_gir_to_coco.py \
 
 ## Training
 
-### Stage 1: COCO Pretraining (Optional)
-
-For best results, initialize with COCO-pretrained weights:
-
-```bash
-python main.py -c config/DINO/DINO_4scale.py \
-    --dataset_file coco \
-    --coco_path /path/to/COCO2017/ \
-    --output_dir ./outputs/pretrain_coco/ \
-    --pretrain_model_coco /path/to/pretrained_checkpoint.pth
-```
-
-### Stage 2: Fine-tune on Target Dataset
+First, download the DINO COCO-pretrained checkpoint from the [DINO repository](https://github.com/IDEA-Research/DINO) and place it at `pretrain/checkpoint0033_coco.pth`. This checkpoint provides backbone initialization for both the visible and infrared streams.
 
 **FLIR:**
 ```bash
 python main.py -c config/DINO/DINO_4scale.py \
     --dataset_file flir_fusion \
     --coco_path /path/to/FLIR_aligned_coco/ \
-    --num_classes 4 \
-    --output_dir ./outputs/flir/ \
-    --pretrain_model_coco ./outputs/pretrain_coco/checkpoint.pth
+    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
+    --output_dir ./outputs/flir/
 ```
 
 **LLVIP:**
@@ -138,9 +125,8 @@ python main.py -c config/DINO/DINO_4scale.py \
 python main.py -c config/DINO/DINO_4scale.py \
     --dataset_file llvip_fusion \
     --coco_path /path/to/LLVIP/ \
-    --num_classes 2 \
-    --output_dir ./outputs/llvip/ \
-    --pretrain_model_coco ./outputs/pretrain_coco/checkpoint.pth
+    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
+    --output_dir ./outputs/llvip/
 ```
 
 **KAIST:**
@@ -148,9 +134,8 @@ python main.py -c config/DINO/DINO_4scale.py \
 python main.py -c config/DINO/DINO_4scale.py \
     --dataset_file kaist_fusion \
     --coco_path /path/to/KAIST_COCO/ \
-    --num_classes 2 \
-    --output_dir ./outputs/kaist/ \
-    --pretrain_model_coco ./outputs/pretrain_coco/checkpoint.pth
+    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
+    --output_dir ./outputs/kaist/
 ```
 
 **GIR:**
@@ -158,9 +143,8 @@ python main.py -c config/DINO/DINO_4scale.py \
 python main.py -c config/DINO/DINO_4scale.py \
     --dataset_file gir_fusion \
     --coco_path /path/to/GIR_COCO/ \
-    --num_classes 6 \
-    --output_dir ./outputs/gir/ \
-    --pretrain_model_coco ./outputs/pretrain_coco/checkpoint.pth
+    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
+    --output_dir ./outputs/gir/
 ```
 
 ---
@@ -171,7 +155,6 @@ python main.py -c config/DINO/DINO_4scale.py \
 python main.py -c config/DINO/DINO_4scale.py \
     --dataset_file flir_fusion \
     --coco_path /path/to/FLIR_aligned_coco/ \
-    --num_classes 4 \
     --resume ./outputs/flir/checkpoint.pth \
     --eval
 ```
@@ -216,13 +199,12 @@ If you find this work useful, please cite:
 
 ```bibtex
 @article{hou2025chudetr,
-  title     = {Infrared-Visible Dual-Modal Object Detection Transformer with
-               Cross-Hierarchical Attention and U-like Gated Interaction},
-  author    = {Hou, Zhiqiang and Wu, Xingping and Zhao, Jialu and
-               Ma, Sugang and Liu, Yang and Lu, Ruitao and Xi, Jianxiang},
-  journal   = {Expert Systems with Applications},
-  year      = {2025},
-  note      = {Preprint submitted to Elsevier}
+  title   = {Infrared-Visible Dual-Modal Object Detection Transformer with
+             Cross-Hierarchical Attention and U-like Gated Interaction},
+  author  = {Hou, Zhiqiang and Wu, Xingping and Zhao, Jialu and
+             Ma, Sugang and Liu, Yang and Lu, Ruitao and Xi, Jianxiang},
+  year    = {2025},
+  note    = {Under review}
 }
 ```
 
