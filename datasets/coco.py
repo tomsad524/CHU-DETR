@@ -453,6 +453,86 @@ class CocoDetection_RGBT_FLIR(RGBT_FLIR):
             img_RGB, img_IR, target = self._transforms(img_RGB, img_IR, target)
         return img_RGB, img_IR, target
 
+
+class CocoDetection_RGBT_KAIST(RGBT_KAIST):
+    """
+    KAIST RGB-T dataset wrapper with COCO polys-to-mask conversion.
+
+    Handles the conversion from raw COCO annotations to the normalized
+    box/label format expected by the DINO training pipeline.
+    """
+
+    def __init__(self, folder_rgb, folder_thermal, ann_file, transforms,
+                 return_masks, aux_target_hacks=None):
+        super(CocoDetection_RGBT_KAIST, self).__init__(
+            folder_rgb, folder_thermal, ann_file)
+        self._transforms = transforms
+        self.prepare = ConvertCocoPolysToMask_fuse(return_masks)
+        self.aux_target_hacks = aux_target_hacks
+
+    def change_hack_attr(self, hackclassname, attrkv_dict):
+        target_class = dataset_hook_register[hackclassname]
+        for item in self.aux_target_hacks:
+            if isinstance(item, target_class):
+                for k, v in attrkv_dict.items():
+                    setattr(item, k, v)
+
+    def get_hack(self, hackclassname):
+        target_class = dataset_hook_register[hackclassname]
+        for item in self.aux_target_hacks:
+            if isinstance(item, target_class):
+                return item
+
+    def __getitem__(self, idx):
+        img_RGB, img_IR, target = super(
+            CocoDetection_RGBT_KAIST, self).__getitem__(idx)
+        image_id = self.ids[idx]
+        target = {'id': image_id, 'annotations': target}
+        img_RGB, img_IR, target = self.prepare(img_RGB, img_IR, target)
+        if self._transforms is not None:
+            img_RGB, img_IR, target = self._transforms(img_RGB, img_IR, target)
+        return img_RGB, img_IR, target
+
+
+class CocoDetection_RGBT_GIR(RGBT_GIR):
+    """
+    GIR RGB-T dataset wrapper with COCO polys-to-mask conversion.
+
+    Handles the conversion from raw COCO annotations to the normalized
+    box/label format expected by the DINO training pipeline.
+    """
+
+    def __init__(self, folder_rgb, folder_thermal, ann_file, transforms,
+                 return_masks, aux_target_hacks=None):
+        super(CocoDetection_RGBT_GIR, self).__init__(
+            folder_rgb, folder_thermal, ann_file)
+        self._transforms = transforms
+        self.prepare = ConvertCocoPolysToMask_fuse(return_masks)
+        self.aux_target_hacks = aux_target_hacks
+
+    def change_hack_attr(self, hackclassname, attrkv_dict):
+        target_class = dataset_hook_register[hackclassname]
+        for item in self.aux_target_hacks:
+            if isinstance(item, target_class):
+                for k, v in attrkv_dict.items():
+                    setattr(item, k, v)
+
+    def get_hack(self, hackclassname):
+        target_class = dataset_hook_register[hackclassname]
+        for item in self.aux_target_hacks:
+            if isinstance(item, target_class):
+                return item
+
+    def __getitem__(self, idx):
+        img_RGB, img_IR, target = super(
+            CocoDetection_RGBT_GIR, self).__getitem__(idx)
+        image_id = self.ids[idx]
+        target = {'id': image_id, 'annotations': target}
+        img_RGB, img_IR, target = self.prepare(img_RGB, img_IR, target)
+        if self._transforms is not None:
+            img_RGB, img_IR, target = self._transforms(img_RGB, img_IR, target)
+        return img_RGB, img_IR, target
+
     
 def make_coco_transforms_RGBT(image_set, fix_size=False, strong_aug=True, args=None):
 
@@ -593,6 +673,89 @@ def build_RGBT_FLIR(image_set, args):
     ann_file = ann_files[image_set]
     dataset = CocoDetection_RGBT_FLIR(folder_rgb=folder_rgb, folder_thermal=folder_thermal, ann_file=ann_file, transforms=make_coco_transforms_RGBT(image_set), return_masks=args.masks,
                                   )
+    return dataset
+
+def build_RGBT_KAIST(image_set, args):
+    """
+    Build the KAIST RGB-T dataset for training or evaluation.
+
+    KAIST has separate day/night subsets within the test set.
+    By default, both are loaded together via the test.json annotation file.
+
+    Usage in main.py:
+        args.dataset_file = 'kaist_fusion'
+        args.coco_path = '/path/to/KAIST_COCO/'
+    """
+    root = Path(args.coco_path)
+    assert root.exists(), f'Provided KAIST path {root} does not exist'
+
+    # KAIST directory structure (COCO format)
+    folders_thermal = {
+        "train": (root / "train_thermal"),
+        "val": (root / "test_thermal"),
+    }
+    folders_rgb = {
+        "train": (root / "train_RGB"),
+        "val": (root / "test_RGB"),
+    }
+    ann_files = {
+        "train": (root / "annotations" / "train.json"),
+        "val": (root / "annotations" / "test.json"),
+    }
+
+    folder_thermal = folders_thermal[image_set]
+    folder_rgb = folders_rgb[image_set]
+    ann_file = ann_files[image_set]
+
+    dataset = CocoDetection_RGBT_KAIST(
+        folder_rgb=folder_rgb,
+        folder_thermal=folder_thermal,
+        ann_file=ann_file,
+        transforms=make_coco_transforms_RGBT(image_set, args=args),
+        return_masks=args.masks,
+    )
+    return dataset
+
+
+
+
+
+def build_RGBT_GIR(image_set, args):
+    """
+    Build the GIR RGB-T dataset for training or evaluation.
+
+    Usage in main.py:
+        args.dataset_file = 'gir_fusion'
+        args.coco_path = '/path/to/GIR_COCO/'
+    """
+    root = Path(args.coco_path)
+    assert root.exists(), f'Provided GIR path {root} does not exist'
+
+    # GIR directory structure (COCO format, 8:2 train/val split)
+    folders_thermal = {
+        "train": (root / "train_thermal"),
+        "val": (root / "val_thermal"),
+    }
+    folders_rgb = {
+        "train": (root / "train_RGB"),
+        "val": (root / "val_RGB"),
+    }
+    ann_files = {
+        "train": (root / "annotations" / "train.json"),
+        "val": (root / "annotations" / "val.json"),
+    }
+
+    folder_thermal = folders_thermal[image_set]
+    folder_rgb = folders_rgb[image_set]
+    ann_file = ann_files[image_set]
+
+    dataset = CocoDetection_RGBT_GIR(
+        folder_rgb=folder_rgb,
+        folder_thermal=folder_thermal,
+        ann_file=ann_file,
+        transforms=make_coco_transforms_RGBT(image_set, args=args),
+        return_masks=args.masks,
+    )
     return dataset
 
 
@@ -916,206 +1079,6 @@ def build(image_set, args):
             aux_target_hacks=aux_target_hacks_list,
         )
 
-    return dataset
-
-
-
-# =============================================================================
-# KAIST Dataset Wrapper & Builder (Section 4.1.1, Table 3)
-# =============================================================================
-# KAIST is a driving-scene multispectral pedestrian dataset.
-# - 7,601 training pairs, 2,252 test pairs (day + night subsets)
-# - Single class: "person" (num_classes=2 including background)
-# - Uses improved annotations from Zhang et al. (ICCV 2019)
-#
-# Expected directory layout:
-#   root/
-#   ├── annotations/
-#   │   ├── train.json
-#   │   └── test.json
-#   ├── train_RGB/      (or train/visible/)
-#   ├── train_thermal/  (or train/lwir/)
-#   ├── test_RGB/
-#   └── test_thermal/
-
-
-class CocoDetection_RGBT_KAIST(RGBT_KAIST):
-    """
-    KAIST RGB-T dataset wrapper with COCO polys-to-mask conversion.
-
-    Handles the conversion from raw COCO annotations to the normalized
-    box/label format expected by the DINO training pipeline.
-    """
-
-    def __init__(self, folder_rgb, folder_thermal, ann_file, transforms,
-                 return_masks, aux_target_hacks=None):
-        super(CocoDetection_RGBT_KAIST, self).__init__(
-            folder_rgb, folder_thermal, ann_file)
-        self._transforms = transforms
-        self.prepare = ConvertCocoPolysToMask_fuse(return_masks)
-        self.aux_target_hacks = aux_target_hacks
-
-    def change_hack_attr(self, hackclassname, attrkv_dict):
-        target_class = dataset_hook_register[hackclassname]
-        for item in self.aux_target_hacks:
-            if isinstance(item, target_class):
-                for k, v in attrkv_dict.items():
-                    setattr(item, k, v)
-
-    def get_hack(self, hackclassname):
-        target_class = dataset_hook_register[hackclassname]
-        for item in self.aux_target_hacks:
-            if isinstance(item, target_class):
-                return item
-
-    def __getitem__(self, idx):
-        img_RGB, img_IR, target = super(
-            CocoDetection_RGBT_KAIST, self).__getitem__(idx)
-        image_id = self.ids[idx]
-        target = {'id': image_id, 'annotations': target}
-        img_RGB, img_IR, target = self.prepare(img_RGB, img_IR, target)
-        if self._transforms is not None:
-            img_RGB, img_IR, target = self._transforms(img_RGB, img_IR, target)
-        return img_RGB, img_IR, target
-
-
-def build_RGBT_KAIST(image_set, args):
-    """
-    Build the KAIST RGB-T dataset for training or evaluation.
-
-    KAIST has separate day/night subsets within the test set.
-    By default, both are loaded together via the test.json annotation file.
-
-    Usage in main.py:
-        args.dataset_file = 'kaist_fusion'
-        args.coco_path = '/path/to/KAIST_COCO/'
-    """
-    root = Path(args.coco_path)
-    assert root.exists(), f'Provided KAIST path {root} does not exist'
-
-    # KAIST directory structure (COCO format)
-    folders_thermal = {
-        "train": (root / "train_thermal"),
-        "val": (root / "test_thermal"),
-    }
-    folders_rgb = {
-        "train": (root / "train_RGB"),
-        "val": (root / "test_RGB"),
-    }
-    ann_files = {
-        "train": (root / "annotations" / "train.json"),
-        "val": (root / "annotations" / "test.json"),
-    }
-
-    folder_thermal = folders_thermal[image_set]
-    folder_rgb = folders_rgb[image_set]
-    ann_file = ann_files[image_set]
-
-    dataset = CocoDetection_RGBT_KAIST(
-        folder_rgb=folder_rgb,
-        folder_thermal=folder_thermal,
-        ann_file=ann_file,
-        transforms=make_coco_transforms_RGBT(image_set, args=args),
-        return_masks=args.masks,
-    )
-    return dataset
-
-
-# =============================================================================
-# GIR Dataset Wrapper & Builder (Section 4.1.1, Table 4)
-# =============================================================================
-# GIR is a custom infrared-visible dataset built from RGBT210 sequences.
-# - 5,105 image pairs (4,084 train / 1,021 test, 8:2 split)
-# - 5 classes: person, dog, car, bicycle, motorcycle (num_classes=6 incl. bg)
-# - Features: variable scales, occlusions, complex backgrounds, small IR targets
-#
-# Expected directory layout:
-#   root/
-#   ├── annotations/
-#   │   ├── train.json
-#   │   └── val.json
-#   ├── train_RGB/
-#   ├── train_thermal/
-#   ├── val_RGB/
-#   └── val_thermal/
-
-
-class CocoDetection_RGBT_GIR(RGBT_GIR):
-    """
-    GIR RGB-T dataset wrapper with COCO polys-to-mask conversion.
-
-    Handles the conversion from raw COCO annotations to the normalized
-    box/label format expected by the DINO training pipeline.
-    """
-
-    def __init__(self, folder_rgb, folder_thermal, ann_file, transforms,
-                 return_masks, aux_target_hacks=None):
-        super(CocoDetection_RGBT_GIR, self).__init__(
-            folder_rgb, folder_thermal, ann_file)
-        self._transforms = transforms
-        self.prepare = ConvertCocoPolysToMask_fuse(return_masks)
-        self.aux_target_hacks = aux_target_hacks
-
-    def change_hack_attr(self, hackclassname, attrkv_dict):
-        target_class = dataset_hook_register[hackclassname]
-        for item in self.aux_target_hacks:
-            if isinstance(item, target_class):
-                for k, v in attrkv_dict.items():
-                    setattr(item, k, v)
-
-    def get_hack(self, hackclassname):
-        target_class = dataset_hook_register[hackclassname]
-        for item in self.aux_target_hacks:
-            if isinstance(item, target_class):
-                return item
-
-    def __getitem__(self, idx):
-        img_RGB, img_IR, target = super(
-            CocoDetection_RGBT_GIR, self).__getitem__(idx)
-        image_id = self.ids[idx]
-        target = {'id': image_id, 'annotations': target}
-        img_RGB, img_IR, target = self.prepare(img_RGB, img_IR, target)
-        if self._transforms is not None:
-            img_RGB, img_IR, target = self._transforms(img_RGB, img_IR, target)
-        return img_RGB, img_IR, target
-
-
-def build_RGBT_GIR(image_set, args):
-    """
-    Build the GIR RGB-T dataset for training or evaluation.
-
-    Usage in main.py:
-        args.dataset_file = 'gir_fusion'
-        args.coco_path = '/path/to/GIR_COCO/'
-    """
-    root = Path(args.coco_path)
-    assert root.exists(), f'Provided GIR path {root} does not exist'
-
-    # GIR directory structure (COCO format, 8:2 train/val split)
-    folders_thermal = {
-        "train": (root / "train_thermal"),
-        "val": (root / "val_thermal"),
-    }
-    folders_rgb = {
-        "train": (root / "train_RGB"),
-        "val": (root / "val_RGB"),
-    }
-    ann_files = {
-        "train": (root / "annotations" / "train.json"),
-        "val": (root / "annotations" / "val.json"),
-    }
-
-    folder_thermal = folders_thermal[image_set]
-    folder_rgb = folders_rgb[image_set]
-    ann_file = ann_files[image_set]
-
-    dataset = CocoDetection_RGBT_GIR(
-        folder_rgb=folder_rgb,
-        folder_thermal=folder_thermal,
-        ann_file=ann_file,
-        transforms=make_coco_transforms_RGBT(image_set, args=args),
-        return_masks=args.masks,
-    )
     return dataset
 
 

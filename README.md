@@ -1,8 +1,8 @@
 # CHU-DETR
 
-Official implementation of **"Infrared-Visible Dual-Modal Object Detection Transformer with Cross-Hierarchical Attention and U-like Gated Interaction"**.
+Official code release of **"Infrared-Visible Dual-Modal Object Detection Transformer with Cross-Hierarchical Attention and U-like Gated Interaction"**.
 
-> **CHU-DETR** (Cross-Hierarchical Attention and U-like Gated Interaction DETR) is an end-to-end dual-modal object detection framework that leverages complementary infrared and visible information for robust detection in complex unstructured environments.
+> **CHU-DETR** (Cross-Hierarchical Attention and U-like Gated Interaction DETR) is an end-to-end dual-modal object detection framework that leverages complementary infrared and visible information for robust detection in complex unstructured environments (e.g., autonomous driving, security surveillance, and UAV aerial imaging). Built upon the DINO detection transformer, CHU-DETR introduces three key innovations: Cross-Hierarchical Attention Feature Fusion (CHAF), U-like Gated Feature Interaction (UGFI), and Position-Supervised Loss (PSL).
 
 <p align="center">
   <img src="figs/framework.png" alt="CHU-DETR Framework" width="90%">
@@ -12,22 +12,30 @@ Official implementation of **"Infrared-Visible Dual-Modal Object Detection Trans
 
 ## Highlights
 
-- **CHAF**: Cross-Hierarchical Attention Feature Fusion — top-down context transmission with multi-branch cross-attention for precise multi-scale complementary feature extraction
-- **UGFI**: U-like Gated Feature Interaction — pixel-level gating dynamically synergizes deep semantics with shallow details, significantly enhancing spatial localization
-- **PSL**: Position-Supervised Loss — resolves bipartite matching ambiguity by supervising classification scores solely with a position metric (IoU)
+- **CHAF** — Cross-Hierarchical Attention Feature Fusion: establishes a top-down context transmission path with multi-branch (1×1, 5×5, 7×7) cross-attention for precise extraction and robust fusion of dual-modal complementary features across multiple scales, effectively overcoming cross-modal physical parallax
+- **UGFI** — U-like Gated Feature Interaction: employs pixel-level gating weights to dynamically filter non-target noise and synergize deep global semantics with shallow high-frequency details, significantly enhancing the spatial localization accuracy of tiny and occluded objects during the decoding stage
+- **PSL** — Position-Supervised Loss: uses solely the position metric (IoU) to supervise the classification scores of positive samples, resolving the optimization ambiguity in bipartite matching between classification and localization
+
+---
+
+## News
+
+- **2026.07**: The core model architecture, evaluation scripts, and dataset processing tools are publicly available. Full training pipeline and pre-trained model weights will be released upon paper acceptance. Stay tuned.
 
 ---
 
 ## Results
 
-| Dataset | Classes | mAP50 | mAP75 | mAP | SOTA Comparison |
-|:---|:---:|:---:|:---:|:---:|:---|
-| **FLIR** | 3 | 87.0 | 48.2 | **50.1** | +2.6% over DMFFNet |
-| **LLVIP** | 1 | **98.4** | **81.7** | **69.0** | +2.1% over Fusion-DETR |
-| **KAIST** | 1 | **78.4** | 26.2 | **36.3** | +1.9% over MODTN |
-| **GIR** | 5 | **92.5** | **69.3** | **60.6** | +4.1% over CMFMNet |
-
 All results obtained with ResNet-50 backbone, trained for 12 epochs on a single NVIDIA RTX 4090.
+
+| Dataset | Backbone | mAP50 | mAP75 | mAP |
+|:---|:---:|:---:|:---:|:---:|
+| **FLIR** | ResNet50 | 87.0 | 48.2 | **50.1** |
+| **LLVIP** | ResNet50 | **98.4** | 81.7 | 69.0 |
+| **KAIST** | ResNet50 | **78.4** | 26.2 | **36.3** |
+| **GIR** | ResNet50 | **92.5** | 69.3 | **60.6** |
+
+> Our method outperforms state-of-the-art dual-modal detectors on all four benchmarks. See the paper (Section 4.2) for detailed per-dataset comparisons with DMFFNet, DAMSDet, SQR-DETR, MRT-DETR, LCAFNet, InfoCalib, and other recent methods.
 
 ---
 
@@ -35,9 +43,12 @@ All results obtained with ResNet-50 backbone, trained for 12 epochs on a single 
 
 ### Requirements
 
-- Python ≥ 3.8
-- PyTorch ≥ 1.10
-- CUDA ≥ 11.3
+| Component | Version |
+|:---|:---|
+| Linux | Ubuntu 20.04+ |
+| Python | ≥ 3.8 |
+| PyTorch | ≥ 1.10 |
+| CUDA | ≥ 11.3 |
 
 ### Setup
 
@@ -49,19 +60,23 @@ cd CHU-DETR
 # Install dependencies
 pip install -r requirements.txt
 
-# Build Deformable Attention CUDA operator
+# Build the Deformable Attention CUDA operator
 cd models/dino/ops
 bash make.sh
 cd ../../..
 ```
 
+If the CUDA operator build fails, verify that your `CUDA_HOME` is correctly set and that your `nvcc` version matches your PyTorch CUDA version.
+
 ---
 
 ## Data Preparation
 
-All datasets need to be in COCO format. We provide conversion scripts for KAIST and GIR.
+All datasets need to be in COCO format. The expected directory structures are shown below.
 
 ### FLIR (Aligned)
+
+Download the aligned version from [FLIR-aligned](https://github.com/nicolalandro/FLIR-aligned). The dataset contains 5,142 IR-RGB image pairs (4,129 training / 1,013 testing) covering person, car, and bicycle.
 
 ```
 FLIR_aligned_coco/
@@ -76,6 +91,8 @@ FLIR_aligned_coco/
 
 ### LLVIP
 
+Download from [LLVIP](https://github.com/bupt-ai-cz/LLVIP). The dataset contains 15,488 strictly aligned IR-RGB pairs (12,025 training / 3,463 testing) designed for pedestrian detection in low-light surveillance scenarios.
+
 ```
 LLVIP/
 ├── coco_annotations/
@@ -89,107 +106,118 @@ LLVIP/
 
 ### KAIST
 
+Download the raw KAIST multispectral pedestrian dataset, then convert to COCO format using the provided script. The dataset contains 95,328 image pairs (7,601 training / 2,252 testing) captured in driving environments. We use the improved annotations from [Zhang et al. (ICCV 2019)](https://github.com/luzhang16/KAIST-Pedestrian-Detection).
+
 ```bash
-# Convert from raw KAIST to COCO format
 python tools/convert_kaist_to_coco.py \
     --kaist_root /path/to/raw_kaist/ \
     --output_root /path/to/KAIST_COCO/
 ```
 
+After conversion:
+
+```
+KAIST_COCO/
+├── annotations/
+│   ├── train.json
+│   └── val.json
+├── train_RGB/
+├── train_thermal/
+├── val_RGB/
+└── val_thermal/
+```
+
 ### GIR
 
+The GIR dataset is constructed from the RGBT210 video sequences by Li et al. Frames are extracted at specific intervals and manually filtered to remove severe motion blur and extreme thermal noise. The dataset comprises 5,105 image pairs (4,084 training / 1,021 testing) covering five classes: person, dog, car, bicycle, and motorcycle.
+
 ```bash
-# Convert from raw GIR to COCO format
 python tools/convert_gir_to_coco.py \
     --gir_root /path/to/raw_gir/ \
     --output_root /path/to/GIR_COCO/
 ```
 
+After conversion:
+
+```
+GIR_COCO/
+├── annotations/
+│   ├── train.json
+│   └── val.json
+├── train_RGB/
+├── train_thermal/
+├── val_RGB/
+└── val_thermal/
+```
+
 ---
 
-## Training
+## Model Architecture
 
-First, download the DINO COCO-pretrained checkpoint from the [DINO repository](https://github.com/IDEA-Research/DINO) and place it at `pretrain/checkpoint0033_coco.pth`. This checkpoint provides backbone initialization for both the visible and infrared streams.
+The dual-modal framework is built on DINO with two independent ResNet-50 backbones for IR and RGB feature extraction. The core modules are defined under `models/dino/`.
 
-**FLIR:**
-```bash
-python main.py -c config/DINO/DINO_4scale.py \
-    --dataset_file flir_fusion \
-    --coco_path /path/to/FLIR_aligned_coco/ \
-    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
-    --output_dir ./outputs/flir/
-```
+| File | Component | Description |
+|:---|:---|:---|
+| `models/dino/dino.py` | Main Framework | End-to-end dual-modal DETR integrating CHAF, UGFI, and PSL |
+| `models/dino/deformable_transformer.py` | Transformer | 6-layer encoder + 6-layer decoder with UGFI gated feature interaction |
+| `models/dino/backbone.py` | Dual Backbone | Weight-independent ResNet-50 branches for IR and RGB |
+| `models/dino/attention.py` | CHAF Attention | Multi-branch (1×1, 5×5, 7×7) cross-attention for multi-scale fusion |
+| `models/dino/matcher.py` | Bipartite Matcher | Hungarian matcher with PSL-integrated cost computation |
+| `models/dino/dn_components.py` | Denoising | Contrastive denoising training components for accelerated convergence |
 
-**LLVIP:**
-```bash
-python main.py -c config/DINO/DINO_4scale.py \
-    --dataset_file llvip_fusion \
-    --coco_path /path/to/LLVIP/ \
-    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
-    --output_dir ./outputs/llvip/
-```
+Configuration files for different DINO variants (4-scale, 5-scale, Swin backbone, ConvNeXt backbone) are in `config/DINO/`.
 
-**KAIST:**
-```bash
-python main.py -c config/DINO/DINO_4scale.py \
-    --dataset_file kaist_fusion \
-    --coco_path /path/to/KAIST_COCO/ \
-    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
-    --output_dir ./outputs/kaist/
-```
-
-**GIR:**
-```bash
-python main.py -c config/DINO/DINO_4scale.py \
-    --dataset_file gir_fusion \
-    --coco_path /path/to/GIR_COCO/ \
-    --pretrain_model_coco pretrain/checkpoint0033_coco.pth \
-    --output_dir ./outputs/gir/
-```
+| Config | Backbone | Scales |
+|:---|:---|:---|
+| `DINO_4scale.py` | ResNet-50 | 4 | ← used in our experiments |
+| `DINO_5scale.py` | ResNet-50 | 5 |
+| `DINO_4scale_swin.py` | Swin Transformer | 4 |
+| `DINO_4scale_convnext.py` | ConvNeXt | 4 |
+| `DINO_5scale_swin.py` | Swin Transformer | 5 |
+| `DINO_5scale_bis.py` | ResNet-50 | 5 (bis) |
 
 ---
 
 ## Evaluation
 
+Pre-trained model weights will be released upon paper acceptance. Once the checkpoint is available:
+
 ```bash
-python main.py -c config/DINO/DINO_4scale.py \
+python main_eval.py -c config/DINO/DINO_4scale.py \
     --dataset_file flir_fusion \
     --coco_path /path/to/FLIR_aligned_coco/ \
-    --resume ./outputs/flir/checkpoint.pth \
+    --resume ./checkpoints/flir_checkpoint.pth \
     --eval
 ```
 
+Replace `flir_fusion` with `llvip_fusion`, `kaist_fusion`, or `gir_fusion` for the other datasets. Evaluation reports mAP50, mAP75, and mAP (COCO-style, averaged over IoU thresholds 0.50–0.95 with step 0.05).
+
 ---
 
-## Ablation Experiments
+## Note on Training Code
 
-Reproduce all ablation studies from Section 4.4 of the paper:
+The complete training pipeline (`main.py`, `engine.py`) and pre-trained model weights for all four datasets (FLIR, LLVIP, KAIST, GIR) are ready and will be released in full upon acceptance of the manuscript. This is a common practice to protect the originality of the contribution during peer review. We appreciate your understanding.
 
-```bash
-# Run all 22 ablation experiments
-python ablations/ablation_runner.py \
-    --config_file config/DINO/DINO_4scale.py \
-    --coco_path /path/to/FLIR_aligned_coco/ \
-    --output_dir ./ablation_results/
+---
 
-# Run a specific table only (5-10)
-python ablations/ablation_runner.py \
-    --config_file config/DINO/DINO_4scale.py \
-    --coco_path /path/to/FLIR_aligned_coco/ \
-    --table 5
+## Project Structure
 
-# Dry-run to preview all configurations
-python ablations/ablation_runner.py --dry_run
 ```
-
-| Table | Content |
-|:---|:---|
-| Table 5 | Core Component Effectiveness (CHAF, UGFI, PSL) |
-| Table 6 | Computational Complexity (Params & FLOPs) |
-| Table 7 | Multi-Scale Kernel Configurations in CHAF |
-| Table 8 | Context Prior Injection Strategy in CHAF |
-| Table 9 | Soft Label Function Design in PSL |
-| Table 10 | Internal Interaction Mechanisms in UGFI |
+CHU-DETR/
+├── config/DINO/              # Model configuration files
+├── datasets/                 # Dataset loading, transforms, and evaluation
+│   └── torchvision_datasets/ # COCO-format dataset wrappers (including dual-modal)
+├── models/dino/              # Core model architecture
+│   └── ops/                  # Deformable attention CUDA operator
+├── tools/                    # Dataset conversion utilities
+├── figs/                     # Framework illustration
+├── main.py                   # Training entry point (to be released upon acceptance)
+├── engine.py                 # Training engine (to be released upon acceptance)
+├── main_eval.py              # Evaluation entry point
+├── requirements.txt          # Python dependencies
+├── README.md                 # This file
+└── LICENSE                   # Apache 2.0
+```
 
 ---
 
@@ -198,12 +226,13 @@ python ablations/ablation_runner.py --dry_run
 If you find this work useful, please cite:
 
 ```bibtex
-@article{hou2025chudetr,
+@article{hou2026chudetr,
   title   = {Infrared-Visible Dual-Modal Object Detection Transformer with
              Cross-Hierarchical Attention and U-like Gated Interaction},
   author  = {Hou, Zhiqiang and Wu, Xingping and Zhao, Jialu and
              Ma, Sugang and Liu, Yang and Lu, Ruitao and Xi, Jianxiang},
-  year    = {2025},
+  journal = {Infrared Physics \& Technology},
+  year    = {2026},
   note    = {Under review}
 }
 ```
