@@ -152,34 +152,6 @@ GIR_COCO/
 
 ---
 
-## Model Architecture
-
-The dual-modal framework is built on DINO with two independent ResNet-50 backbones for IR and RGB feature extraction. The core modules are defined under `models/dino/`.
-
-| File | Component | Description |
-|:---|:---|:---|
-| `models/dino/dino.py` | Main Framework | End-to-end dual-modal DETR integrating CHAF, UGFI, and PSL |
-| `models/dino/deformable_transformer.py` | Transformer | 6-layer encoder + 6-layer decoder with UGFI gated feature interaction |
-| `models/dino/backbone.py` | Dual Backbone | Weight-independent ResNet-50 branches for IR and RGB |
-| `models/dino/attention.py` | CHAF Attention | Multi-branch (1×1, 5×5, 7×7) cross-attention for multi-scale fusion |
-| `models/dino/matcher.py` | Bipartite Matcher | Hungarian matcher with PSL-integrated cost computation |
-| `models/dino/dn_components.py` | Denoising | Contrastive denoising training components for accelerated convergence |
-
-Configuration files for different DINO variants (4-scale, 5-scale, Swin backbone, ConvNeXt backbone) are in `config/DINO/`.
-
-| Config | Backbone | Scales |
-|:---|:---|:---|
-| `DINO_4scale.py` | ResNet-50 | 4 | ← used in our experiments |
-| `DINO_5scale.py` | ResNet-50 | 5 |
-| `DINO_4scale_swin.py` | Swin Transformer | 4 |
-| `DINO_4scale_convnext.py` | ConvNeXt | 4 |
-| `DINO_5scale_swin.py` | Swin Transformer | 5 |
-| `DINO_5scale_bis.py` | ResNet-50 | 5 (bis) |
-
----
-
-## Evaluation
-
 Pre-trained model weights will be released upon paper acceptance. Once the checkpoint is available:
 
 ```bash
